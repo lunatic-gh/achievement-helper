@@ -42,22 +42,38 @@ public class MainScene extends Scene {
     this.addGameButton.setStyle("-fx-background-radius: 0px;");
     this.addGameButton.setMaxWidth(Double.MAX_VALUE);
     this.addGameButton.setOnAction(e -> {
-      if (!Steam.getInstance().ensureAuthenticated()) {
-        Util.showMessageDialog("Error", "Could not authenticate, cancelling...");
-      }
-      String appId = Util.showInputDialog("Add Game Manually", "Please enter the Steam AppID of the game you want to add. You can find it in the URL of the Game's Steam Store-Page.", "AppID", false);
-      if (appId == null) {
-        return;
-      }
-      if (!appId.matches("\\d+")) {
-        Util.showMessageDialog("Warning", "Invalid AppID provided, cancelling...");
-        return;
-      }
-      Stage progressStage = Util.showProgressDialog("Retrieving Game Data", "Currently retrieving Game Data, Please wait...");
-      CompletableFuture.runAsync(() -> {
-        GameDataStorage.getInstance().retrieveAndAddGame(Long.parseLong(appId));
-        Platform.runLater(progressStage::close);
-      });
+      this.addGameButton.setDisable(true);
+      CompletableFuture.supplyAsync(() -> {
+        return Steam.getInstance().ensureAuthenticated();
+      }).thenAccept(success -> Platform.runLater(() -> {
+        if (!success) {
+          Util.showMessageDialog("Error", "Could not authenticate, cancelling...");
+          this.addGameButton.setDisable(false);
+          return;
+        }
+
+        String appId = Util.showInputDialog("Add Game Manually", "Please enter the Steam AppID of the game you want to add. You can find it in the URL of the Game's Steam Store-Page.", "AppID", false);
+
+        if (appId == null) {
+          this.addGameButton.setDisable(false);
+          return;
+        }
+
+        if (!appId.matches("\\d+")) {
+          Util.showMessageDialog("Warning", "Invalid AppID provided, cancelling...");
+          this.addGameButton.setDisable(false);
+          return;
+        }
+
+        Stage progressStage = Util.showProgressDialog("Retrieving Game Data", "Currently retrieving Game Data, Please wait...");
+        CompletableFuture.runAsync(() -> {
+          GameDataStorage.getInstance().retrieveAndAddGame(Long.parseLong(appId));
+          Platform.runLater(() -> {
+            progressStage.close();
+            this.addGameButton.setDisable(false);
+          });
+        });
+      }));
     });
     this.settingsButton = new Button("Settings");
     this.settingsButton.setStyle("-fx-background-radius: 0px;");

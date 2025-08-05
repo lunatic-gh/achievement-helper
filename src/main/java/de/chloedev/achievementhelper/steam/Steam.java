@@ -11,12 +11,15 @@ import in.dragonbra.javasteam.steam.handlers.steamuser.SteamUser;
 import in.dragonbra.javasteam.steam.handlers.steamuser.callback.LoggedOnCallback;
 import in.dragonbra.javasteam.steam.steamclient.SteamClient;
 import in.dragonbra.javasteam.steam.steamclient.callbackmgr.CallbackManager;
+import javafx.application.Platform;
 
 import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicReference;
 
 public class Steam {
 
@@ -52,88 +55,95 @@ public class Steam {
    *
    * @return true if logged in, false if not.
    */
-  public synchronized boolean ensureAuthenticated() {
+  public boolean ensureAuthenticated() {
+    // If already connected and authenticated, return true
     if (client.isConnected() && user.getSteamID() != null && user.getSteamID().convertToUInt64() != 0L) {
-      // Already logged in
       return true;
     }
 
     AccountStorage storage = AccountStorage.getInstance();
     Account stored = storage.getAccount();
 
+    // Connect the client if needed
     if (!client.isConnected()) {
       client.connect();
-      Util.waitUntil(this.client::isConnected, 5000, null, null);
+      Util.waitUntil(client::isConnected, 5000, null, null);
     }
 
     try {
+      // Try logging in with existing refresh token
       if (stored != null && stored.getRefreshToken() != null && !stored.getRefreshToken().isEmpty()) {
-        System.out.println("Attempting token login for user '%s'".formatted(stored.getUsername()));
-
         LogOnDetails tokenDetails = new LogOnDetails();
         tokenDetails.setUsername(stored.getUsername());
         tokenDetails.setAccessToken(stored.getRefreshToken());
 
         CompletableFuture<LoggedOnCallback> tokenFuture = new CompletableFuture<>();
-        Closeable tokenSub = callbackManager.subscribe(LoggedOnCallback.class, tokenFuture::complete);
+        try (Closeable tokenSub = callbackManager.subscribe(LoggedOnCallback.class, tokenFuture::complete)) {
+          user.logOn(tokenDetails);
+          LoggedOnCallback tokenResult = tokenFuture.get(20, TimeUnit.SECONDS);
 
-        user.logOn(tokenDetails);
-        LoggedOnCallback tokenResult = tokenFuture.get(20, TimeUnit.SECONDS);
-        tokenSub.close();
-
-        if (tokenResult.getResult() == EResult.OK) {
-          System.out.println("Token login succeeded");
-          return true;
-        } else {
-          System.out.println("Token login failed: " + tokenResult.getResult());
+          if (tokenResult.getResult() == EResult.OK) {
+            System.out.println("Token login succeeded");
+            return true;
+          } else {
+            System.out.println("Token login failed: " + tokenResult.getResult());
+          }
         }
       }
 
-      // 4) Fallback: prompt user for username/password
-      Pair<String, String> creds = Util.showLoginDialog();
-      String username = creds.getLeft();
-      String password = creds.getRight();
+      // Get credentials from the user via UI
+      AtomicReference<Pair<String, String>> credentials = new AtomicReference<>(null);
+
+      Platform.runLater(() -> {
+        credentials.set(Util.showLoginDialog());
+      });
+
+      Util.waitUntil(() -> credentials.get() != null, -1, null, null);
+
+      String username = credentials.get().getLeft();
+      String password = credentials.get().getRight();
 
       AuthSessionDetails authDetails = new AuthSessionDetails();
       authDetails.username = username;
       authDetails.password = password;
       authDetails.persistentSession = true;
-      authDetails.guardData = (stored != null ? stored.getSteamGuardData() : null);
-      authDetails.authenticator = new in.dragonbra.javasteam.steam.authentication.UserConsoleAuthenticator();
+      authDetails.guardData = (stored != null && stored.getSteamGuardData() != null) ? stored.getSteamGuardData() : "";
+      SteamAuthenticator authenticator = authenticator = new SteamAuthenticator();
+      authDetails.authenticator = authenticator;
 
-      // Begin credential‐based auth + 2FA polling
+      // Begin authentication session and poll for result
       var authSession = client.getAuthentication().beginAuthSessionViaCredentials(authDetails).get();
       var poll = authSession.pollingWaitForResult().get();
 
-      // Extract new tokens and guard data
+      authenticator.cleanup();
+
       String newRefresh = poll.getRefreshToken();
       String newGuard = (poll.getNewGuardData() != null) ? poll.getNewGuardData() : authDetails.guardData;
       String accountName = poll.getAccountName();
 
-      // 5) Full logon with the new refresh token
+      // Final login with new credentials
       LogOnDetails pwdDetails = new LogOnDetails();
       pwdDetails.setUsername(accountName);
       pwdDetails.setAccessToken(newRefresh);
 
       CompletableFuture<LoggedOnCallback> pwdFuture = new CompletableFuture<>();
-      Closeable pwdSub = callbackManager.subscribe(LoggedOnCallback.class, pwdFuture::complete);
+      try (Closeable pwdSub = callbackManager.subscribe(LoggedOnCallback.class, pwdFuture::complete)) {
+        user.logOn(pwdDetails);
+        LoggedOnCallback pwdResult = pwdFuture.get(20, TimeUnit.SECONDS);
 
-      user.logOn(pwdDetails);
-      LoggedOnCallback pwdResult = pwdFuture.get(20, TimeUnit.SECONDS);
-      pwdSub.close();
+        if (pwdResult.getResult() != EResult.OK) {
+          System.err.println("Final logOn failed: " + pwdResult.getResult());
+          return false;
+        }
 
-      if (pwdResult.getResult() != EResult.OK) {
-        System.err.println("Final logOn failed: " + pwdResult.getResult());
-        return false;
+        // Save new account credentials
+        Account newAccount = new Account(accountName, newRefresh, user.getSteamID(), newGuard);
+        storage.setAccount(newAccount);
+        storage.save();
+        System.out.println("Saved new account credentials.");
+
+        return true;
       }
-
-      // 6) Persist the fresh Account (now that SteamID is available)
-      Account newAccount = new Account(accountName, newRefresh, user.getSteamID(), newGuard);
-      storage.setAccount(newAccount);
-      storage.save();
-      System.out.println("Saved new account credentials.");
-
-      return true;
 
     } catch (Exception e) {
       e.printStackTrace();

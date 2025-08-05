@@ -1,6 +1,5 @@
 package de.chloedev.achievementhelper.steam;
 
-import de.chloedev.achievementhelper.util.Util;
 import in.dragonbra.javasteam.steam.authentication.IAuthenticator;
 import javafx.application.Platform;
 import javafx.event.Event;
@@ -15,14 +14,11 @@ import java.util.concurrent.CompletableFuture;
 
 public class SteamAuthenticator implements IAuthenticator {
 
-  private boolean cancelled;
-
   private Dialog<ButtonType> acceptDialog;
 
   @Override
   public @NotNull CompletableFuture<String> getDeviceCode(boolean prevFailed) {
     return CompletableFuture.supplyAsync(() -> {
-      // TODO: Implement
       return "";
     });
   }
@@ -30,7 +26,6 @@ public class SteamAuthenticator implements IAuthenticator {
   @Override
   public @NotNull CompletableFuture<String> getEmailCode(@Nullable String address, boolean prevFailed) {
     return CompletableFuture.supplyAsync(() -> {
-      // TODO: Implement
       return "";
     });
   }
@@ -59,9 +54,13 @@ public class SteamAuthenticator implements IAuthenticator {
 
   public void cleanup() {
     Platform.runLater(() -> {
-      Stage stage = Util.getOrDefault((Stage) this.acceptDialog.getDialogPane().getScene().getWindow(), null);
-      if (stage != null) {
-        stage.close();
+      try {
+        if (this.acceptDialog != null) {
+          Stage stage = (Stage) this.acceptDialog.getDialogPane().getScene().getWindow();
+          stage.close();
+        }
+      } catch (Exception e) {
+        e.printStackTrace();
       }
     });
   }

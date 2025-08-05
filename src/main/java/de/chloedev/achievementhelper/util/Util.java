@@ -187,36 +187,6 @@ public class Util {
     alert.show();
   }
 
-
-  /**
-   * This will try returning the given value, or the given default value if an error occurred, or it's null.
-   * <p>
-   * Specifically, this will catch ANY exceptions that can be caught by the jvm.
-   * Therefore, this can be useful to quickly get a deeply nested value without multiple if-checks.
-   * <p>
-   * See this example:
-   * <p>
-   * {@code MyObject myObj = getOrDefault(someOtherObj.getSomeNestedValue().getSomeDeepNestedValue(), myDefaultObj);}<br>
-   * <p>
-   * If e.g. {@code someOtherObj} or {@code getSomeNestedValue} are null, this will cause a NullPointerException.
-   * <p>
-   * However, by wrapping this in getOrDefault, the
-   * NullPointerException will be automatically caught, and it'll just return the provided default value.
-   *
-   * @param obj the object to try to get.
-   * @param def the object to return when {@code obj} was null, or an error occurred.
-   * @return {@code obj} if successful, or {@code def} it not.
-   */
-  public static <T> T getOrDefault(T obj, T def) {
-    try {
-      if (obj != null) {
-        return obj;
-      }
-    } catch (Exception ignored) {
-    }
-    return def;
-  }
-
   /**
    * Returns a list of appid>name pairs of all apps registered on the steam store.
    * Note that this includes EVERYTHING, e.g. the steam client itself or apps like "Source SDK"

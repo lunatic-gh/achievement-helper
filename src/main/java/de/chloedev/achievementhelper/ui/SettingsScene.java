@@ -4,7 +4,6 @@ import de.chloedev.achievementhelper.Main;
 import de.chloedev.achievementhelper.ui.option.Option;
 import de.chloedev.achievementhelper.ui.option.Options;
 import de.chloedev.achievementhelper.util.Util;
-import javafx.collections.FXCollections;
 import javafx.geometry.Insets;
 import javafx.scene.Node;
 import javafx.scene.Scene;
@@ -14,7 +13,6 @@ import javafx.scene.control.ScrollPane;
 import javafx.scene.control.SelectionMode;
 import javafx.scene.layout.BorderPane;
 import javafx.scene.layout.Priority;
-import javafx.scene.layout.Region;
 import javafx.scene.layout.VBox;
 
 import java.util.List;
@@ -42,15 +40,15 @@ public class SettingsScene extends Scene {
 
     sidebarList = new ListView<>();
     sidebarList.setFixedCellSize(30);
-    sidebarList.setItems(FXCollections.observableArrayList("General", "Advanced"));
     sidebarList.getSelectionModel().setSelectionMode(SelectionMode.SINGLE);
-    sidebarList.getSelectionModel().selectFirst();
     VBox.setVgrow(sidebarList, Priority.ALWAYS);
 
     sidebar.getChildren().setAll(backButton, sidebarList);
     root.setLeft(sidebar);
 
     Map<String, List<Option<?>>> options = Map.of("General", Options.GENERAL_OPTIONS);
+
+    options.keySet().forEach(sidebarList.getItems()::add);
 
     this.content = new VBox(8);
     this.content.setPadding(new Insets(8));
@@ -73,12 +71,6 @@ public class SettingsScene extends Scene {
         node.setStyle("-fx-border-color: #444; -fx-border-radius: 8; -fx-padding: 16;");
         container.getChildren().add(node);
       });
-    });
-
-    options.getOrDefault("General", List.of()).forEach(opt -> {
-      Node node = opt.createNode();
-      node.setStyle("-fx-border-color: #444; -fx-border-radius: 8; -fx-padding: 16;");
-      container.getChildren().add(node);
     });
 
     this.content.getChildren().addAll(Util.createHorizontalPlaceholder(32), scrollPane);
