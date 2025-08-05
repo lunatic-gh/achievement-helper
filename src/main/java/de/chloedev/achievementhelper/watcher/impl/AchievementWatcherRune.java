@@ -48,9 +48,7 @@ public class AchievementWatcherRune extends AchievementWatcher {
                 }
               }
             }
-            if (!achievements.isEmpty()) {
-              map.put(Long.parseLong(appDir.getName()), achievements);
-            }
+            map.put(Long.parseLong(appDir.getName()), achievements);
           } catch (IOException e) {
             e.printStackTrace();
           }

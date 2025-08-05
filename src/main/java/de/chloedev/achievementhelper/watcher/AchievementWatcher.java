@@ -3,6 +3,8 @@ package de.chloedev.achievementhelper.watcher;
 import de.chloedev.achievementhelper.impl.Achievement;
 import de.chloedev.achievementhelper.impl.Game;
 import de.chloedev.achievementhelper.io.GameDataStorage;
+import de.chloedev.achievementhelper.util.Pair;
+import de.chloedev.achievementhelper.util.Util;
 import org.jetbrains.annotations.NotNull;
 
 import java.io.File;
@@ -12,18 +14,38 @@ import java.nio.file.attribute.BasicFileAttributes;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Queue;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 public abstract class AchievementWatcher {
 
+  private final Queue<Pair<Long, String>> queue = new ConcurrentLinkedQueue<>();
+
   @SuppressWarnings("unchecked")
-  private static <T> WatchEvent<T> cast(WatchEvent<?> event) {
+  private <T> WatchEvent<T> cast(WatchEvent<?> event) {
     return (WatchEvent<T>) event;
   }
 
   public void listen() {
     Path basePath = getBasePath().toPath();
     Map<WatchKey, Path> watchKeys = new HashMap<>();
+
+    CompletableFuture.runAsync(() -> {
+      //noinspection InfiniteLoopStatement
+      while (true) {
+        Pair<Long, String> entry = queue.poll();
+        if (entry != null) {
+          Achievement achievement = GameDataStorage.getInstance().getAchievementById(entry.getLeft(), entry.getRight());
+          if (achievement != null && !achievement.isAchieved()) {
+            AchievementQueue.getInstance().addToQueue(entry.getLeft(), achievement);
+            System.out.println("ADDED TO SECOND QUEUE");
+            Util.waitUntil(() -> false, 10000, null, null);
+          }
+        }
+      }
+    });
+
     try (WatchService watcher = FileSystems.getDefault().newWatchService()) {
       registerAllDirs(basePath, watcher, watchKeys);
       while (true) {
@@ -50,9 +72,9 @@ public abstract class AchievementWatcher {
                 Game game = GameDataStorage.getInstance().getGames().stream().filter(g -> g.getAppId() == id).findFirst().orElse(null);
                 if (game != null) {
                   for (String achievementId : achievementIds) {
-                    Achievement achievement = game.getAchievements().stream().filter(ach -> ach.getId().equals(achievementId)).findFirst().orElse(null);
-                    if (achievement != null && !achievement.isAchieved()) {
-                      AchievementQueue.getInstance().addToQueue(game.getAppId(), achievement);
+                    synchronized (queue) {
+                      queue.add(Pair.of(game.getAppId(), achievementId));
+                      System.out.println("ADDED TO FIRST QUEUE");
                     }
                   }
                 }

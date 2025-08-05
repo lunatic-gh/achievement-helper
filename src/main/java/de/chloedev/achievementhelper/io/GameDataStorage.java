@@ -214,10 +214,7 @@ public class GameDataStorage {
       }
     }
     // Download achievement icons
-    String[] urls = {
-      "https://cdn.akamai.steamstatic.com/steamcommunity/public/images/apps",
-      "https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps"
-    };
+    String[] urls = {"https://cdn.akamai.steamstatic.com/steamcommunity/public/images/apps", "https://cdn.cloudflare.steamstatic.com/steamcommunity/public/images/apps"};
     achievements.forEach(achievement -> {
       String[] icons = {achievement.getIcon(), achievement.getIconLocked()};
       for (String icon : icons) {
@@ -240,6 +237,11 @@ public class GameDataStorage {
         }
       }
     });
+  }
+
+  public Achievement getAchievementById(Long appId, String achievementId) {
+    Game game = this.games.stream().filter(g -> g.getAppId() == appId).findFirst().orElse(null);
+    return game != null ? game.getAchievements().stream().filter(ach -> ach.getId().equals(achievementId)).findFirst().orElse(null) : null;
   }
 
   public List<Game> getGames() {
