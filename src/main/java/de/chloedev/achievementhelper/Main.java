@@ -39,7 +39,7 @@ public class Main extends Application {
     this.stage = stage;
     // We need tray support, otherwise JavaFX will auto-close the program when the last window is hidden or closed.
     if (!FXTrayIcon.isSupported()) {
-      throw new UnsupportedOperationException("System Tray is not supported on your Platform. On Linux, please ensure you are using a supported Desktop Environment.");
+      throw new UnsupportedOperationException("System Tray is not supported on your Platform.");
     }
 
     Util.downloadAllSteamApps();
