@@ -17,7 +17,7 @@ Or install it manually from [here](https://github.com/git-for-windows/git/releas
 ```cmd
 git clone "https://github.com/lunatic-gh/achievement-helper" "%HOMEPATH%/Downloads/achievement-helper"
 cd "%HOMEPATH%/Downloads/achievement-helper"
-.\mvn clean package
+.\mvnw clean package
 ```
 - When finished, the built jar will be at `C:/Users/<user>/Downloads/achievement-helper/target/achievement-helper.jar`. Do not use the `achievement-helper-<version>.jar`, it does not include the required dependencies.
 
