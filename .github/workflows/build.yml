@@ -21,4 +21,4 @@ jobs:
           java-version: "21"
 
       - name: Build
-        run: mvn clean package
+        run: .\mvnw clean package
