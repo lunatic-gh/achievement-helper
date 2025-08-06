@@ -5,6 +5,7 @@
 ## Runtime Requirements
 - Java 21 or newer. You can download a runtime-jre from [here](https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.8%2B9/OpenJDK21U-jre_x64_windows_hotspot_21.0.8_9.msi)
   - During install, make sure you select `Modify Path variable` and `Set or override JAVA_HOME variable`. The registry keys option is not required, but recommended in general.
+- Python 3.10+ (Only if using the "legit-steam" branch). This will be required until JavaSteam supports binary vdf's.
 
 ## How to build
 
@@ -46,10 +47,10 @@ javaw -jar "path/to/achievement-helper.jar"
 ## Supported Emulators/Environments
 - Currently the program supports the following:
   - RUNE (C:/Users/Public/Documents/Steam/RUNE/...)
+  - CODEX (C:/Users/Public/Documents/Steam/CODEX/...) (See the "legit-steam" branch)
+  - STEAM (C:/Program Files (x86)/Steam/appcache/stats/...) (See the "legit-steam" branch)
  
 - Support for the following is being worked on:
-  - Legit Steam - This is not held back by me, but the steam auth library we're using. Currently, it does not support reading the binary userdata-files that steam generates. The author of the library is already working on it.
-  - CODEX - I still need to find out how it dumps achievements. From what i can see, it does not use the achievements.ini, but rather the stats.ini? However that file's contents are not in a format that we could reliably convert. Needs more testing.
   - Goldberg - No idea how it works at all...
  
 - For other emulators, please open an Issue. If you want to make it easier, attach a sample achievements file that the emulator in question generates, so i know how to read them.
