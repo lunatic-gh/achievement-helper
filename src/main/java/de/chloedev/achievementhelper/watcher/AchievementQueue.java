@@ -12,7 +12,7 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 
 public class AchievementQueue {
 
-  private static volatile AchievementQueue INSTANCE = new AchievementQueue();
+  private static final AchievementQueue INSTANCE = new AchievementQueue();
 
   private final Queue<Pair<Long, Achievement>> completionQueue = new ConcurrentLinkedQueue<>();
   private final Timer timer = new Timer();
@@ -31,8 +31,6 @@ public class AchievementQueue {
       while (true) {
         Pair<Long, Achievement> entry = completionQueue.poll();
         if (entry != null) {
-          entry.getRight().complete();
-          GameDataStorage.getInstance().save();
           Util.showAchievementNotification(entry.getLeft(), entry.getRight());
           Util.waitUntil(() -> false, 10000, null, null);
         } else {
@@ -42,9 +40,14 @@ public class AchievementQueue {
     });
   }
 
-  public void addToQueue(long appId, Achievement achievement) {
+  public void addToQueue(long appId, String achievementId) {
     synchronized (completionQueue) {
-      completionQueue.add(Pair.of(appId, achievement));
+      Achievement achievement = GameDataStorage.getInstance().getAchievementById(appId, achievementId);
+      if (achievement != null && !achievement.isAchieved()) {
+        achievement.setAchieved(true);
+        GameDataStorage.getInstance().save();
+        completionQueue.add(Pair.of(appId, achievement));
+      }
     }
   }
 }

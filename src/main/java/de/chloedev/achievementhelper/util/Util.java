@@ -1,5 +1,6 @@
 package de.chloedev.achievementhelper.util;
 
+import de.chloedev.achievementhelper.Main;
 import de.chloedev.achievementhelper.impl.Achievement;
 import javafx.animation.FadeTransition;
 import javafx.animation.PauseTransition;
@@ -24,16 +25,25 @@ import org.jetbrains.annotations.Nullable;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.InputStreamReader;
+import java.io.*;
 import java.net.URI;
+import java.net.URL;
+import java.net.URLDecoder;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.StandardCopyOption;
+import java.util.ArrayList;
+import java.util.Enumeration;
+import java.util.List;
 import java.util.Optional;
 import java.util.function.Supplier;
+import java.util.jar.JarEntry;
+import java.util.jar.JarFile;
+import java.util.stream.Stream;
 
 public class Util {
 
@@ -255,7 +265,7 @@ public class Util {
 
       HBox content = new HBox(view, textBox);
       content.setSpacing(10);
-      content.setPadding(new javafx.geometry.Insets(10));
+      content.setPadding(new Insets(10));
       content.setBackground(new Background(new BackgroundFill(Color.DARKSLATEGRAY, new CornerRadii(5), null)));
       content.setStyle("-fx-effect: dropshadow(gaussian, black, 10, 0, 0, 2);");
 
@@ -294,5 +304,98 @@ public class Util {
       pause.setOnFinished(event -> fade.play());
       pause.play();
     });
+  }
+
+  public static String getFileExtension(File file) {
+    String name = file.getName();
+    int i = name.lastIndexOf('.');
+    return i > 0 ? name.substring(i + 1) : "";
+  }
+
+  public static String getFileExtension(Path path) {
+    return getFileExtension(path.toFile());
+  }
+
+  public static File extractPyResources() {
+    try {
+      // Create a unique temp directory
+      File tmpDir = Files.createTempDirectory("pythonResources").toFile();
+      tmpDir.deleteOnExit();
+      String resourceRoot = "py";
+
+      // Locate the resource URL
+      URL resourceUrl = Main.class.getClassLoader().getResource(resourceRoot);
+      if (resourceUrl == null) throw new FileNotFoundException("Cannot find resource: " + resourceRoot);
+
+      if (resourceUrl.getProtocol().equals("jar")) {
+        // Running from a JAR
+        String jarPath = resourceUrl.getPath().substring(5, resourceUrl.getPath().indexOf("!"));
+        try (JarFile jarFile = new JarFile(URLDecoder.decode(jarPath, StandardCharsets.UTF_8))) {
+          Enumeration<JarEntry> entries = jarFile.entries();
+          while (entries.hasMoreElements()) {
+            JarEntry entry = entries.nextElement();
+            if (entry.getName().startsWith(resourceRoot + "/") && !entry.isDirectory()) {
+              File destFile = new File(tmpDir, entry.getName().substring(resourceRoot.length() + 1));
+              destFile.getParentFile().mkdirs();
+              destFile.deleteOnExit();
+              try (InputStream in = jarFile.getInputStream(entry);
+                   OutputStream out = new FileOutputStream(destFile)) {
+                in.transferTo(out);
+              }
+            }
+          }
+        }
+      } else if (resourceUrl.getProtocol().equals("file")) {
+        // Running from IDE - resources in file system
+        File resourceDir = new File(resourceUrl.toURI());
+
+        try (Stream<Path> stream = Files.walk(resourceDir.toPath())) {
+          stream.forEach(path -> {
+            try {
+              if (Files.isRegularFile(path)) {
+                Path relativePath = resourceDir.toPath().relativize(path);
+                File destFile = new File(tmpDir, relativePath.toString());
+                destFile.getParentFile().mkdirs();
+                destFile.deleteOnExit();
+                Files.copy(path, destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+              }
+            } catch (IOException e) {
+              e.printStackTrace();
+            }
+          });
+        }
+      }
+
+      return tmpDir;
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      return null;
+    }
+  }
+
+  /**
+   * Runs a python script, and returns the output the script printed.
+   * Due to java restrictions, we'll have to resort to some workarounds only available in python to retrieve some data.
+   *
+   * @param scriptPath the path to the script
+   * @return the stdout string from the script process.
+   */
+  public static String runPyScript(String scriptPath, String... args) {
+    try {
+      StringBuilder s = new StringBuilder();
+      List<String> list = new ArrayList<>(List.of("python", scriptPath));
+      list.addAll(List.of(args));
+      Process proc = Runtime.getRuntime().exec(list.toArray(new String[0]));
+      BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+      reader.lines().forEach(line -> {
+        s.append(line).append(System.lineSeparator());
+      });
+      proc.waitFor();
+      return s.toString().trim();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return "";
   }
 }

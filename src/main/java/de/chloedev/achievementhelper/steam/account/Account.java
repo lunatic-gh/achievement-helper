@@ -11,7 +11,6 @@ import org.json.JSONObject;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.Base64;
-import java.util.Date;
 
 public class Account {
 
@@ -83,12 +82,10 @@ public class Account {
       long expirationTimestamp = this.getRefreshTokenExpirationTimestampMs();
       if (System.currentTimeMillis() > expirationTimestamp) {
         // Already expired. Refreshing it would be practically pointless.
-        System.out.println("Token already expired");
         return false;
       }
       // If the token expires in less than 7 days, refresh it.
       if (expirationTimestamp - System.currentTimeMillis() > 604800000) {
-        System.out.println("Token expires at '%s', not refreshing.".formatted(Date.from(Instant.ofEpochMilli(expirationTimestamp)).toString()));
         return false;
       }
       return true;
@@ -103,19 +100,19 @@ public class Account {
       try {
         SteamAuthentication auth = new SteamAuthentication(Steam.getInstance().getClient());
         AccessTokenGenerateResult result = auth.generateAccessTokenForApp(this.steamId, this.refreshToken, true).get();
+        this.lastTokenRefreshTime = Instant.now();
         System.out.println("Refreshed token!");
         // We don't care about the access token, since it's not used anywhere.
         if (!Strings.isNullOrEmpty(result.getRefreshToken())) {
           this.refreshToken = result.getAccessToken();
           AccountStorage.getInstance().save();
           System.out.println("Saved new token.");
-          this.lastTokenRefreshTime = Instant.now();
         } else System.out.println("Didn't receive a new refresh token.");
       } catch (Exception e) {
         e.printStackTrace();
       }
     } else {
-      System.out.println("Determined that the token should not be refreshed.");
+      System.out.println("Not refreshing token....");
     }
   }
 }

@@ -31,7 +31,7 @@ public class StringListOption extends Option<List<String>> {
   @Override
   public Node createNode() {
     HBox root = new HBox();
-    root.setAlignment(Pos.TOP_LEFT); // Align children to top-left
+    root.setAlignment(Pos.TOP_LEFT);
     root.setSpacing(5);
 
     Label label = new Label(this.name);
@@ -39,7 +39,7 @@ public class StringListOption extends Option<List<String>> {
     Region spacer = new Region();
     HBox.setHgrow(spacer, Priority.ALWAYS);
 
-    VBox valueBox = new VBox(5); // Stack list and controls vertically
+    VBox valueBox = new VBox(5);
 
     ListView<String> listView = new ListView<>(values);
     listView.setFixedCellSize(24);

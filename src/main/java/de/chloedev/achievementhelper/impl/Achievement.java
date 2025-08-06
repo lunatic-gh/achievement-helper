@@ -14,21 +14,29 @@ public final class Achievement {
   private final String description;
   private final String icon;
   private final String iconLocked;
+  private final int stat;
+  private final int bit;
+  private final String statId;
+  private final int maxProgress;
   private boolean achieved;
 
-  public Achievement(String id, String name, String description, String icon, String iconLocked, boolean achieved) {
+  public Achievement(String id, String name, String description, String icon, String iconLocked, int stat, int bit, String statId, int maxProgress, boolean achieved) {
     this.id = id;
     this.name = name;
     this.description = description;
     this.icon = icon;
     this.iconLocked = iconLocked;
+    this.stat = stat;
+    this.bit = bit;
+    this.statId = statId;
+    this.maxProgress = maxProgress;
     this.achieved = achieved;
   }
 
   public static Achievement fromString(String jsonStr) {
     try {
       JSONObject obj = new JSONObject(jsonStr);
-      return new Achievement(obj.getString("id"), obj.getString("name"), obj.optString("description", ""), obj.optString("icon", ""), obj.optString("iconLocked", ""), obj.optBoolean("achieved", false));
+      return new Achievement(obj.getString("id"), obj.getString("name"), obj.getString("description"), obj.getString("icon"), obj.getString("iconLocked"), obj.getInt("stat"), obj.getInt("bit"), obj.getString("statId"), obj.getInt("maxProgress"), obj.getBoolean("achieved"));
     } catch (Exception e) {
       e.printStackTrace();
       return null;
@@ -47,6 +55,10 @@ public final class Achievement {
     obj.put("description", description);
     obj.put("icon", icon);
     obj.put("iconLocked", iconLocked);
+    obj.put("stat", stat);
+    obj.put("bit", bit);
+    obj.put("statId", statId);
+    obj.put("maxProgress", maxProgress);
     obj.put("achieved", achieved);
     return obj;
   }
@@ -81,11 +93,27 @@ public final class Achievement {
     return iconLocked;
   }
 
+  public int getStat() {
+    return stat;
+  }
+
+  public int getBit() {
+    return bit;
+  }
+
+  public String getStatId() {
+    return statId;
+  }
+
+  public int getMaxProgress() {
+    return maxProgress;
+  }
+
   public boolean isAchieved() {
     return achieved;
   }
 
-  public void complete() {
-    this.achieved = true;
+  public void setAchieved(boolean achieved) {
+    this.achieved = achieved;
   }
 }

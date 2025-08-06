@@ -6,6 +6,7 @@ import de.chloedev.achievementhelper.impl.Game;
 import de.chloedev.achievementhelper.steam.Steam;
 import de.chloedev.achievementhelper.ui.MainScene;
 import de.chloedev.achievementhelper.util.Util;
+import de.chloedev.achievementhelper.watcher.AchievementWatcher;
 import in.dragonbra.javasteam.steam.handlers.steamapps.PICSProductInfo;
 import in.dragonbra.javasteam.steam.handlers.steamapps.PICSRequest;
 import in.dragonbra.javasteam.steam.handlers.steamapps.SteamApps;
@@ -15,6 +16,7 @@ import in.dragonbra.javasteam.steam.handlers.steamuserstats.callback.UserStatsCa
 import in.dragonbra.javasteam.types.AsyncJobMultiple;
 import in.dragonbra.javasteam.types.KeyValue;
 import in.dragonbra.javasteam.types.SteamID;
+import in.dragonbra.javasteam.util.Strings;
 import javafx.application.Platform;
 import org.json.JSONArray;
 import org.json.JSONObject;
@@ -30,6 +32,7 @@ import java.nio.channels.ReadableByteChannel;
 import java.nio.file.Files;
 import java.nio.file.NoSuchFileException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class GameDataStorage {
@@ -90,7 +93,7 @@ public class GameDataStorage {
 
         root.put(gameObj);
       }
-      Files.writeString(this.file.toPath(), root.toString(2));
+      Files.writeString(this.file.toPath(), root.toString());
     } catch (Exception e) {
       e.printStackTrace();
     }
@@ -127,27 +130,47 @@ public class GameDataStorage {
                 apps.clear(); // Hopefully frees some memory, since storeApps is HUGE.
 
                 List<Achievement> achievements = new ArrayList<>();
-                KeyValue stats = schema.get("stats");
-                if (stats != KeyValue.INVALID) {
-                  for (KeyValue id : stats.getChildren()) {
-                    KeyValue bits = id.get("bits");
-                    if (bits != KeyValue.INVALID) {
-                      for (KeyValue bit : bits.getChildren()) {
-                        KeyValue display = bit.get("display");
-                        if (display != KeyValue.INVALID) {
-                          KeyValue achIdObj = bit.get("name");
-                          KeyValue achNameObj = display.get("name");
-                          KeyValue achDescriptionObj = display.get("desc");
-                          KeyValue achIconObj = display.get("icon");
-                          KeyValue achIconLockedObj = display.get("icon_gray");
-                          if (achIdObj != KeyValue.INVALID && achNameObj != KeyValue.INVALID && achDescriptionObj != KeyValue.INVALID && achIconObj != KeyValue.INVALID && achIconLockedObj != KeyValue.INVALID) {
+                KeyValue statsObj = schema.get("stats");
+                if (statsObj != KeyValue.INVALID) {
+                  for (KeyValue statObj : statsObj.getChildren()) {
+                    int stat = Integer.parseInt(statObj.getName());
+                    KeyValue bitsObj = statObj.get("bits");
+                    if (bitsObj != KeyValue.INVALID) {
+                      for (KeyValue bitObj : bitsObj.getChildren()) {
+                        KeyValue displayObj = bitObj.get("display");
+                        KeyValue progressObj = bitObj.get("progress");
+                        if (displayObj != KeyValue.INVALID) {
+                          KeyValue achIdObj = bitObj.get("name");
+                          KeyValue achNameObj = displayObj.get("name");
+                          KeyValue achDescriptionObj = displayObj.get("desc");
+                          KeyValue achIconObj = displayObj.get("icon");
+                          KeyValue achIconLockedObj = displayObj.get("icon_gray");
+                          KeyValue achBitObj = bitObj.get("bit");
+                          if (achIdObj != KeyValue.INVALID && achNameObj != KeyValue.INVALID && achDescriptionObj != KeyValue.INVALID && achIconObj != KeyValue.INVALID && achIconLockedObj != KeyValue.INVALID && achBitObj != KeyValue.INVALID) {
                             String achId = achIdObj.getValue();
                             String achName = achNameObj.get("english") != KeyValue.INVALID ? achNameObj.get("english").getValue() : "";
                             String achDescription = achDescriptionObj.get("english") != KeyValue.INVALID ? achDescriptionObj.get("english").getValue() : "";
                             String achIcon = achIconObj.getValue();
                             String achIconLocked = achIconLockedObj.getValue();
-                            if (!achName.isEmpty() && !achDescription.isEmpty()) {
-                              Achievement achievement = new Achievement(achId, achName, achDescription, achIcon, achIconLocked, false);
+                            int achMaxProgress = 0;
+                            String achStatId = "";
+                            int achBit = achBitObj.asInteger();
+                            if (progressObj != KeyValue.INVALID) {
+                              KeyValue maxValObj = progressObj.get("max_val");
+                              KeyValue valueObj = progressObj.get("value");
+                              if (maxValObj != KeyValue.INVALID) {
+                                achMaxProgress = maxValObj.asInteger();
+                              }
+                              if (valueObj != KeyValue.INVALID) {
+                                KeyValue operandObj = valueObj.get("operand1");
+                                if (operandObj != KeyValue.INVALID) {
+                                  achStatId = operandObj.getValue();
+                                }
+                              }
+                            }
+                            if (!Strings.isNullOrEmpty(achId) && !Strings.isNullOrEmpty(achName) && !Strings.isNullOrEmpty(achDescription)) {
+                              Achievement achOld = this.getAchievementById(appId, achId);
+                              Achievement achievement = new Achievement(achId, achName, achDescription, achIcon, achIconLocked, stat, achBit, achStatId, achMaxProgress, achOld != null && achOld.isAchieved());
                               achievements.add(achievement);
                             }
                           }
@@ -169,6 +192,10 @@ public class GameDataStorage {
                     scene.updateGameList();
                   }
                 });
+                AchievementWatcher watcher = Main.getInstance().getAchievementWatcher();
+                if (watcher != null) {
+                  watcher.scanAll();
+                }
                 return;
               }
               return;
@@ -227,8 +254,8 @@ public class GameDataStorage {
             out.getChannel().transferFrom(channel, 0, Long.MAX_VALUE);
             channel.close();
             out.close();
-            // Wait 100ms after each request
-            Util.waitUntil(() -> false, 100, null, null);
+            // Wait 50ms after each icon.
+            Util.waitUntil(() -> false, 50, null, null);
             System.out.println("Downloaded icon " + icon);
             break;
           } catch (Exception e) {
@@ -239,7 +266,11 @@ public class GameDataStorage {
     });
   }
 
-  public Achievement getAchievementById(Long appId, String achievementId) {
+  public List<Achievement> getAchievementsForGame(long appId) {
+    return this.games.stream().filter(g -> g.getAppId() == appId).findFirst().map(Game::getAchievements).orElse(Collections.emptyList());
+  }
+
+  public Achievement getAchievementById(long appId, String achievementId) {
     Game game = this.games.stream().filter(g -> g.getAppId() == appId).findFirst().orElse(null);
     return game != null ? game.getAchievements().stream().filter(ach -> ach.getId().equals(achievementId)).findFirst().orElse(null) : null;
   }
