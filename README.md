@@ -2,6 +2,10 @@
 
 ## This is still WIP!
 
+## Sample
+Yes the resolution sucks, but github has a 25mb limit.
+![](./achievement-sample.gif)
+
 ## Runtime Requirements
 - Java 21 or newer. You can download a runtime-jre from [here](https://github.com/adoptium/temurin21-binaries/releases/download/jdk-21.0.8%2B9/OpenJDK21U-jre_x64_windows_hotspot_21.0.8_9.msi)
   - During install, make sure you select `Modify Path variable` and `Set or override JAVA_HOME variable`. The registry keys option is not required, but recommended in general.
