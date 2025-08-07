@@ -2,7 +2,6 @@ package de.chloedev.achievementhelper.steam.account;
 
 import de.chloedev.achievementhelper.io.AccountStorage;
 import de.chloedev.achievementhelper.steam.Steam;
-import de.chloedev.achievementhelper.util.Logger;
 import in.dragonbra.javasteam.steam.authentication.AccessTokenGenerateResult;
 import in.dragonbra.javasteam.steam.authentication.SteamAuthentication;
 import in.dragonbra.javasteam.types.SteamID;
@@ -76,7 +75,7 @@ public class Account {
 
   public boolean shouldRefreshToken() {
     if (Duration.between(lastTokenRefreshTime, Instant.now()).toSeconds() < 300) {
-      Logger.debug("Token was already refreshed in the last 5 minutes.");
+      System.out.println("Token was already refreshed in the last 5 minutes.");
       return false;
     }
     try {
@@ -91,7 +90,7 @@ public class Account {
       }
       return true;
     } catch (Exception e) {
-      Logger.error(e);
+      e.printStackTrace();
     }
     return false;
   }
@@ -102,18 +101,18 @@ public class Account {
         SteamAuthentication auth = new SteamAuthentication(Steam.getInstance().getClient());
         AccessTokenGenerateResult result = auth.generateAccessTokenForApp(this.steamId, this.refreshToken, true).get();
         this.lastTokenRefreshTime = Instant.now();
-        Logger.info("Refreshed token!");
+        System.out.println("Refreshed token!");
         // We don't care about the access token, since it's not used anywhere.
         if (!Strings.isNullOrEmpty(result.getRefreshToken())) {
           this.refreshToken = result.getAccessToken();
           AccountStorage.getInstance().save();
-          Logger.info("Saved new token.");
-        } else Logger.debug("Didn't receive a new refresh token.");
+          System.out.println("Saved new token.");
+        } else System.out.println("Didn't receive a new refresh token.");
       } catch (Exception e) {
-        Logger.error(e);
+        e.printStackTrace();
       }
     } else {
-      Logger.info("Not refreshing token....");
+      System.out.println("Not refreshing token....");
     }
   }
 }

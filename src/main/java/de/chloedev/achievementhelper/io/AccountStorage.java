@@ -1,7 +1,6 @@
 package de.chloedev.achievementhelper.io;
 
 import de.chloedev.achievementhelper.steam.account.Account;
-import de.chloedev.achievementhelper.util.Logger;
 import de.chloedev.achievementhelper.util.Util;
 import in.dragonbra.javasteam.types.SteamID;
 import org.json.JSONObject;
@@ -36,7 +35,7 @@ public class AccountStorage {
     } catch (FileNotFoundException | NoSuchFileException ígnored) {
       // IGNORED
     } catch (Exception e) {
-      Logger.error(e);
+      e.printStackTrace();
     }
     this.account = null;
   }
@@ -50,7 +49,7 @@ public class AccountStorage {
       obj.put("steamGuardData", this.account.getSteamGuardData());
       Files.writeString(this.file.toPath(), obj.toString());
     } catch (Exception e) {
-      Logger.error(e);
+      e.printStackTrace();
     }
   }
 

@@ -1,15 +1,14 @@
 package de.chloedev.achievementhelper.watcher;
 
+import de.chloedev.achievementhelper.Main;
 import de.chloedev.achievementhelper.impl.Achievement;
 import de.chloedev.achievementhelper.io.Configuration;
 import de.chloedev.achievementhelper.io.GameDataStorage;
-import de.chloedev.achievementhelper.steam.Steam;
-import de.chloedev.achievementhelper.util.Logger;
 import de.chloedev.achievementhelper.util.Pair;
 import de.chloedev.achievementhelper.util.Util;
-import in.dragonbra.javasteam.types.KeyValue;
 import in.dragonbra.javasteam.util.stream.BinaryReader;
 import org.json.JSONArray;
+import org.json.JSONObject;
 
 import java.io.BufferedReader;
 import java.io.File;
@@ -33,33 +32,18 @@ public class AchievementWatcher {
   public void init() {
     try {
       watchService = FileSystems.getDefault().newWatchService();
-      Configuration config = Configuration.getInstance();
-
       // @formatter:off
-      List<String> defaultPaths = List.of(
+      List<String> paths = new ArrayList<>(List.of(
         "C:/Program Files (x86)/Steam/appcache/stats/UserGameStats_*.bin",
+
         "<PUBLIC>/Documents/Steam/RUNE/*/achievements.ini",
         "<PUBLIC>/Documents/Steam/RUNE/*/stats.ini",
+
         "<PUBLIC>/Documents/Steam/CODEX/*/achievements.ini",
         "<PUBLIC>/Documents/Steam/CODEX/*/stats.ini"
-      );
+      ));
       // @formatter:on
-      List<String> paths = new ArrayList<>(config.get("watcherPaths", new JSONArray()).toList().stream().map(Object::toString).toList());
-      for (int i = defaultPaths.size() - 1; i >= 0; i--) {
-        String path = defaultPaths.get(i);
-        if (!paths.contains(path)) {
-          paths.addFirst(path);
-        }
-      }
-
-      defaultPaths.forEach(path -> {
-        if (!paths.contains(path)) {
-          paths.addFirst(path);
-        }
-      });
-
-      config.set("watcherPaths", new JSONArray(paths));
-
+      paths.addAll(Configuration.getInstance().get("dumpPaths", new JSONArray()).toList().stream().map(Object::toString).toList());
       for (String raw : paths) {
         String expanded = expandEnv(raw);
         Pair<Path, String> parts = splitGlob(expanded);
@@ -74,7 +58,7 @@ public class AchievementWatcher {
       scanAll();
       processEvents();
     } catch (Exception e) {
-      Logger.error(e);
+      e.printStackTrace();
     }
   }
 
@@ -93,7 +77,6 @@ public class AchievementWatcher {
             if ((evt.kind() == StandardWatchEventKinds.ENTRY_CREATE || evt.kind() == StandardWatchEventKinds.ENTRY_MODIFY) && m.matches(path)) {
               CompletableFuture.runAsync(() -> {
                 Pair<Long, List<String>> achievements = parse(path);
-                Logger.info(achievements.getRight().toString());
                 long appId = achievements.getLeft();
                 for (String achId : achievements.getRight()) {
                   Achievement achievement = GameDataStorage.getInstance().getAchievementById(appId, achId);
@@ -113,27 +96,23 @@ public class AchievementWatcher {
         Thread.currentThread().interrupt();
         break;
       } catch (Exception e) {
-        Logger.error(e);
+        e.printStackTrace();
       }
     }
   }
 
   private void registerAll(Path start) {
-    if (!Files.exists(start)) {
-      Logger.warn("Ignoring Path '%s', because it does not exist", start);
-      return;
-    }
     try (Stream<Path> stream = Files.walk(start)) {
       stream.filter(Files::isDirectory).forEach(dir -> {
         try {
           WatchKey key = dir.register(watchService, StandardWatchEventKinds.ENTRY_CREATE, StandardWatchEventKinds.ENTRY_MODIFY, StandardWatchEventKinds.ENTRY_DELETE);
           keyToDir.put(key, dir);
         } catch (IOException e) {
-          Logger.error(e);
+          e.printStackTrace();
         }
       });
     } catch (Exception e) {
-      Logger.error(e);
+      e.printStackTrace();
     }
   }
 
@@ -196,16 +175,16 @@ public class AchievementWatcher {
                   }
                 }
               } catch (Exception e) {
-                Logger.error(e);
+                e.printStackTrace();
               }
               break;
             }
           }
           scanned.add(path);
-          Logger.debug("Scanned path '%s'", path.toAbsolutePath());
+          System.out.println("Scanned path '%s'".formatted(path.toAbsolutePath()));
         });
       } catch (IOException e) {
-        Logger.error(e);
+        e.printStackTrace();
       }
     }
   }
@@ -304,7 +283,7 @@ public class AchievementWatcher {
         }
       }
     } catch (Exception e) {
-      Logger.error(e);
+      e.printStackTrace();
     }
     return EMPTY;
   }
@@ -324,33 +303,26 @@ public class AchievementWatcher {
     if (!matcher.matches()) {
       return EMPTY;
     }
-    long steamId = Long.parseLong(matcher.group(1));
     long appId = Long.parseLong(matcher.group(2));
-    if (Steam.getInstance().getClient().getSteamID() == null || Steam.getInstance().getClient().getSteamID().getAccountID() != steamId) {
+    File pyDir = Main.getInstance().getPyResources();
+    if (pyDir == null) {
       return EMPTY;
     }
     try {
-      KeyValue result = KeyValue.tryLoadAsBinary(file.getAbsolutePath());
-      if (result == null || result == KeyValue.INVALID) {
-        return EMPTY;
-      }
+      String result = Util.runPyScript(pyDir.getAbsolutePath() + "/dump_steam_achievements.py", file.getAbsolutePath());
+      JSONObject cacheObj = new JSONObject(result.isEmpty() ? "{}" : result).optJSONObject("cache", new JSONObject());
       List<Achievement> achList = GameDataStorage.getInstance().getAchievementsForGame(appId);
-      if (achList.isEmpty() || result.getChildren().isEmpty()) {
+      if (achList.isEmpty() || cacheObj.isEmpty()) {
         return Pair.of(appId, Collections.emptyList());
       }
-      List<String> unlocked = result.getChildren().stream().filter(key -> key.getName().matches("\\d+")).flatMap(statObj -> {
-        int stat = Integer.parseInt(statObj.getName());
-        KeyValue achTimesObj = statObj.get("AchievementTimes");
-        if (achTimesObj == null || achTimesObj == KeyValue.INVALID) {
-          return Stream.empty();
-        }
-        return achTimesObj.getChildren().stream().map(kv -> Long.parseLong(kv.getName())).flatMap(bit -> {
-          return achList.stream().filter(a -> a.getStat() == stat && a.getBit() == bit).map(Achievement::getId);
-        });
+      List<String> unlocked = cacheObj.keySet().stream().filter(key -> key.matches("\\d+")).flatMap(statKey -> {
+        int stat = Integer.parseInt(statKey);
+        JSONObject achTimes = cacheObj.optJSONObject(statKey, new JSONObject()).optJSONObject("AchievementTimes", new JSONObject());
+        return achTimes.keySet().stream().map(Long::parseLong).flatMap(bit -> achList.stream().filter(a -> a.getStat() == stat && a.getBit() == bit).map(Achievement::getId));
       }).collect(Collectors.toList());
       return Pair.of(appId, unlocked);
     } catch (Exception e) {
-      Logger.error(e);
+      e.printStackTrace();
       return EMPTY;
     }
   }

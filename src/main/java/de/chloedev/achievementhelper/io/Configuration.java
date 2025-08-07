@@ -1,12 +1,10 @@
 package de.chloedev.achievementhelper.io;
 
-import de.chloedev.achievementhelper.util.Logger;
 import de.chloedev.achievementhelper.util.Util;
 import org.json.JSONObject;
 
 import java.io.File;
 import java.nio.file.Files;
-import java.util.Map;
 
 public class Configuration {
 
@@ -27,7 +25,7 @@ public class Configuration {
     try {
       this.obj = new JSONObject(Files.readString(this.file.toPath()));
     } catch (Exception e) {
-      Logger.error(e);
+      e.printStackTrace();
       this.obj = new JSONObject();
     }
   }
@@ -36,7 +34,7 @@ public class Configuration {
     try {
       Files.writeString(this.file.toPath(), this.obj.toString(2));
     } catch (Exception e) {
-      Logger.error(e);
+      e.printStackTrace();
     }
   }
 
@@ -63,5 +61,4 @@ public class Configuration {
   public void remove(String key) {
     this.obj.remove(key);
   }
-
 }

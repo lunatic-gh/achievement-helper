@@ -57,7 +57,7 @@ public class Util {
         }
       }
     } catch (Exception e) {
-      Logger.error(e);
+      e.printStackTrace();
     }
     return null;
   }
@@ -69,7 +69,7 @@ public class Util {
         return f;
       }
     } catch (Exception e) {
-      Logger.error(e);
+      e.printStackTrace();
     }
     return null;
   }
@@ -226,7 +226,7 @@ public class Util {
       }
       Files.writeString(new File(Util.getCacheDirectory(), "storeApps.json").toPath(), finalObj.toString());
     } catch (Exception e) {
-      Logger.error(e);
+      e.printStackTrace();
     }
   }
 
@@ -314,5 +314,88 @@ public class Util {
 
   public static String getFileExtension(Path path) {
     return getFileExtension(path.toFile());
+  }
+
+  public static File extractPyResources() {
+    try {
+      // Create a unique temp directory
+      File tmpDir = Files.createTempDirectory("pythonResources").toFile();
+      tmpDir.deleteOnExit();
+      String resourceRoot = "py";
+
+      // Locate the resource URL
+      URL resourceUrl = Main.class.getClassLoader().getResource(resourceRoot);
+      if (resourceUrl == null) throw new FileNotFoundException("Cannot find resource: " + resourceRoot);
+
+      if (resourceUrl.getProtocol().equals("jar")) {
+        // Running from a JAR
+        String jarPath = resourceUrl.getPath().substring(5, resourceUrl.getPath().indexOf("!"));
+        try (JarFile jarFile = new JarFile(URLDecoder.decode(jarPath, StandardCharsets.UTF_8))) {
+          Enumeration<JarEntry> entries = jarFile.entries();
+          while (entries.hasMoreElements()) {
+            JarEntry entry = entries.nextElement();
+            if (entry.getName().startsWith(resourceRoot + "/") && !entry.isDirectory()) {
+              File destFile = new File(tmpDir, entry.getName().substring(resourceRoot.length() + 1));
+              destFile.getParentFile().mkdirs();
+              destFile.deleteOnExit();
+              try (InputStream in = jarFile.getInputStream(entry);
+                   OutputStream out = new FileOutputStream(destFile)) {
+                in.transferTo(out);
+              }
+            }
+          }
+        }
+      } else if (resourceUrl.getProtocol().equals("file")) {
+        // Running from IDE - resources in file system
+        File resourceDir = new File(resourceUrl.toURI());
+
+        try (Stream<Path> stream = Files.walk(resourceDir.toPath())) {
+          stream.forEach(path -> {
+            try {
+              if (Files.isRegularFile(path)) {
+                Path relativePath = resourceDir.toPath().relativize(path);
+                File destFile = new File(tmpDir, relativePath.toString());
+                destFile.getParentFile().mkdirs();
+                destFile.deleteOnExit();
+                Files.copy(path, destFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
+              }
+            } catch (IOException e) {
+              e.printStackTrace();
+            }
+          });
+        }
+      }
+
+      return tmpDir;
+
+    } catch (Exception e) {
+      e.printStackTrace();
+      return null;
+    }
+  }
+
+  /**
+   * Runs a python script, and returns the output the script printed.
+   * Due to java restrictions, we'll have to resort to some workarounds only available in python to retrieve some data.
+   *
+   * @param scriptPath the path to the script
+   * @return the stdout string from the script process.
+   */
+  public static String runPyScript(String scriptPath, String... args) {
+    try {
+      StringBuilder s = new StringBuilder();
+      List<String> list = new ArrayList<>(List.of("python", scriptPath));
+      list.addAll(List.of(args));
+      Process proc = Runtime.getRuntime().exec(list.toArray(new String[0]));
+      BufferedReader reader = new BufferedReader(new InputStreamReader(proc.getInputStream()));
+      reader.lines().forEach(line -> {
+        s.append(line).append(System.lineSeparator());
+      });
+      proc.waitFor();
+      return s.toString().trim();
+    } catch (Exception e) {
+      e.printStackTrace();
+    }
+    return "";
   }
 }

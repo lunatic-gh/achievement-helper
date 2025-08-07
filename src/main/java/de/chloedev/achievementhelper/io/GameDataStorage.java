@@ -5,7 +5,6 @@ import de.chloedev.achievementhelper.impl.Achievement;
 import de.chloedev.achievementhelper.impl.Game;
 import de.chloedev.achievementhelper.steam.Steam;
 import de.chloedev.achievementhelper.ui.MainScene;
-import de.chloedev.achievementhelper.util.Logger;
 import de.chloedev.achievementhelper.util.Util;
 import de.chloedev.achievementhelper.watcher.AchievementWatcher;
 import in.dragonbra.javasteam.steam.handlers.steamapps.PICSProductInfo;
@@ -74,7 +73,7 @@ public class GameDataStorage {
     } catch (NoSuchFileException ignored) {
       // File doesn't exist — do nothing
     } catch (Exception e) {
-      Logger.error(e);
+      e.printStackTrace();
     }
   }
 
@@ -96,7 +95,7 @@ public class GameDataStorage {
       }
       Files.writeString(this.file.toPath(), root.toString());
     } catch (Exception e) {
-      Logger.error(e);
+      e.printStackTrace();
     }
   }
 
@@ -205,7 +204,7 @@ public class GameDataStorage {
         }
       }
     } catch (Exception e) {
-      Logger.error(e);
+      e.printStackTrace();
     }
   }
 
@@ -238,7 +237,7 @@ public class GameDataStorage {
           out.close();
         }
       } catch (Exception e) {
-        Logger.error(e);
+        e.printStackTrace();
       }
     }
     // Download achievement icons
@@ -257,10 +256,10 @@ public class GameDataStorage {
             out.close();
             // Wait 50ms after each icon.
             Util.waitUntil(() -> false, 50, null, null);
-            Logger.info("Downloaded icon %s", icon);
+            System.out.println("Downloaded icon " + icon);
             break;
           } catch (Exception e) {
-            Logger.error(e);
+            e.printStackTrace();
           }
         }
       }

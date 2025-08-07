@@ -40,7 +40,6 @@ public class StringListOption extends Option<List<String>> {
     HBox.setHgrow(spacer, Priority.ALWAYS);
 
     VBox valueBox = new VBox(5);
-    HBox.setHgrow(valueBox, Priority.ALWAYS);
 
     ListView<String> listView = new ListView<>(values);
     listView.setFixedCellSize(24);

@@ -1,6 +1,5 @@
 package de.chloedev.achievementhelper.steam;
 
-import de.chloedev.achievementhelper.util.Logger;
 import in.dragonbra.javasteam.steam.authentication.IAuthenticator;
 import javafx.application.Platform;
 import javafx.event.Event;
@@ -61,7 +60,7 @@ public class SteamAuthenticator implements IAuthenticator {
           stage.close();
         }
       } catch (Exception e) {
-        Logger.error(e);
+        e.printStackTrace();
       }
     });
   }
