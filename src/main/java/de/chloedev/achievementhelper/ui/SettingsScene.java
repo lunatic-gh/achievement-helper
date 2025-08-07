@@ -46,9 +46,11 @@ public class SettingsScene extends Scene {
     sidebar.getChildren().setAll(backButton, sidebarList);
     root.setLeft(sidebar);
 
-    Map<String, List<Option<?>>> options = Map.of("General", Options.GENERAL_OPTIONS);
+    Map<String, List<Option<?>>> options = Map.of("General", Options.GENERAL_OPTIONS, "Watcher", Options.WATCHER_OPTIONS);
 
-    options.keySet().forEach(sidebarList.getItems()::add);
+    for (String cat : options.keySet()) {
+      this.sidebarList.getItems().add(cat);
+    }
 
     this.content = new VBox(8);
     this.content.setPadding(new Insets(8));

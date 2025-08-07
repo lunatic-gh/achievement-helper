@@ -2,6 +2,7 @@ package de.chloedev.achievementhelper.steam;
 
 import de.chloedev.achievementhelper.io.AccountStorage;
 import de.chloedev.achievementhelper.steam.account.Account;
+import de.chloedev.achievementhelper.util.Logger;
 import de.chloedev.achievementhelper.util.Pair;
 import de.chloedev.achievementhelper.util.Util;
 import in.dragonbra.javasteam.enums.EResult;
@@ -11,13 +12,11 @@ import in.dragonbra.javasteam.steam.handlers.steamuser.SteamUser;
 import in.dragonbra.javasteam.steam.handlers.steamuser.callback.LoggedOnCallback;
 import in.dragonbra.javasteam.steam.steamclient.SteamClient;
 import in.dragonbra.javasteam.steam.steamclient.callbackmgr.CallbackManager;
-import javafx.application.Platform;
 
 import java.io.Closeable;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -73,20 +72,21 @@ public class Steam {
     try {
       // Try logging in with existing refresh token
       if (stored != null && stored.getRefreshToken() != null && !stored.getRefreshToken().isEmpty()) {
-        LogOnDetails tokenDetails = new LogOnDetails();
-        tokenDetails.setUsername(stored.getUsername());
-        tokenDetails.setAccessToken(stored.getRefreshToken());
+        LogOnDetails logOnDetails = new LogOnDetails();
+        logOnDetails.setUsername(stored.getUsername());
+        logOnDetails.setAccessToken(stored.getRefreshToken());
+        logOnDetails.setLoginID(912359125);
 
         CompletableFuture<LoggedOnCallback> tokenFuture = new CompletableFuture<>();
         try (Closeable tokenSub = callbackManager.subscribe(LoggedOnCallback.class, tokenFuture::complete)) {
-          user.logOn(tokenDetails);
+          user.logOn(logOnDetails);
           LoggedOnCallback tokenResult = tokenFuture.get(20, TimeUnit.SECONDS);
 
           if (tokenResult.getResult() == EResult.OK) {
-            System.out.println("Token login succeeded");
+            Logger.info("Token login succeeded");
             return true;
           } else {
-            System.out.println("Token login failed: " + tokenResult.getResult());
+            Logger.error("Token login failed: %s", tokenResult.getResult().name());
           }
         }
       }
@@ -94,9 +94,7 @@ public class Steam {
       // Get credentials from the user via UI
       AtomicReference<Pair<String, String>> credentials = new AtomicReference<>(null);
 
-      Platform.runLater(() -> {
-        credentials.set(Util.showLoginDialog());
-      });
+      credentials.set(Util.showLoginDialog());
 
       Util.waitUntil(() -> credentials.get() != null, -1, null, null);
 
@@ -122,17 +120,18 @@ public class Steam {
       String accountName = poll.getAccountName();
 
       // Final login with new credentials
-      LogOnDetails pwdDetails = new LogOnDetails();
-      pwdDetails.setUsername(accountName);
-      pwdDetails.setAccessToken(newRefresh);
+      LogOnDetails logOnDetails = new LogOnDetails();
+      logOnDetails.setUsername(accountName);
+      logOnDetails.setAccessToken(newRefresh);
+      logOnDetails.setLoginID(912359125);
 
       CompletableFuture<LoggedOnCallback> pwdFuture = new CompletableFuture<>();
       try (Closeable pwdSub = callbackManager.subscribe(LoggedOnCallback.class, pwdFuture::complete)) {
-        user.logOn(pwdDetails);
-        LoggedOnCallback pwdResult = pwdFuture.get(20, TimeUnit.SECONDS);
+        user.logOn(logOnDetails);
+        LoggedOnCallback result = pwdFuture.get(20, TimeUnit.SECONDS);
 
-        if (pwdResult.getResult() != EResult.OK) {
-          System.err.println("Final logOn failed: " + pwdResult.getResult());
+        if (result.getResult() != EResult.OK) {
+          Logger.error("Final logOn failed:  %s", result.getResult().name());
           return false;
         }
 
@@ -140,13 +139,13 @@ public class Steam {
         Account newAccount = new Account(accountName, newRefresh, user.getSteamID(), newGuard);
         storage.setAccount(newAccount);
         storage.save();
-        System.out.println("Saved new account credentials.");
+        Logger.info("Saved new account credentials.");
 
         return true;
       }
 
     } catch (Exception e) {
-      e.printStackTrace();
+      Logger.error(e);
       return false;
     }
   }

@@ -1,5 +1,6 @@
 package de.chloedev.achievementhelper.impl;
 
+import de.chloedev.achievementhelper.util.Logger;
 import de.chloedev.achievementhelper.util.Util;
 import javafx.scene.image.Image;
 import org.jetbrains.annotations.NotNull;
@@ -26,7 +27,7 @@ public final class Game {
       JSONObject obj = new JSONObject(jsonStr);
       return new Game(obj.getString("name"), obj.getLong("appId"), obj.optJSONArray("achievements", new JSONArray()).toList().stream().map(o -> (Achievement) o).toList());
     } catch (Exception e) {
-      e.printStackTrace();
+      Logger.error(e);
       return null;
     }
   }
@@ -49,7 +50,7 @@ public final class Game {
     try {
       return new Image(new File(Util.getCacheDirectory(), "icons/%s/game.jpg".formatted(this.appId)).toURI().toURL().toExternalForm());
     } catch (Exception e) {
-      e.printStackTrace();
+      Logger.error(e);
       return null;
     }
   }

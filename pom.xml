@@ -61,7 +61,7 @@
         <dependency>
             <groupId>in.dragonbra</groupId>
             <artifactId>javasteam</artifactId>
-            <version>1.6.1-20250728.003332-12</version>
+            <version>1.6.1-20250807.183509-13</version>
         </dependency>
         <dependency>
             <groupId>org.json</groupId>
