@@ -1,5 +1,6 @@
 package de.chloedev.achievementhelper.impl;
 
+import de.chloedev.achievementhelper.util.Logger;
 import de.chloedev.achievementhelper.util.Util;
 import javafx.scene.image.Image;
 import org.jetbrains.annotations.NotNull;
@@ -38,7 +39,7 @@ public final class Achievement {
       JSONObject obj = new JSONObject(jsonStr);
       return new Achievement(obj.getString("id"), obj.getString("name"), obj.getString("description"), obj.getString("icon"), obj.getString("iconLocked"), obj.getInt("stat"), obj.getInt("bit"), obj.getString("statId"), obj.getInt("maxProgress"), obj.getBoolean("achieved"));
     } catch (Exception e) {
-      e.printStackTrace();
+      Logger.error(e);
       return null;
     }
   }
@@ -68,7 +69,7 @@ public final class Achievement {
     try {
       return new Image(new File(Util.getCacheDirectory(), "icons/%s/%s".formatted(appId, this.achieved ? this.icon : this.iconLocked)).toURI().toURL().toExternalForm());
     } catch (Exception e) {
-      e.printStackTrace();
+      Logger.error(e);
       return null;
     }
   }
